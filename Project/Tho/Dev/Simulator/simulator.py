@@ -79,7 +79,7 @@ class Environment:
             for y in np.arange(start_y, end_y, 1):
                 if (self.background[int(y), int(x)] == (0, 0, 0)).all() and \
                         (self.frame[int(y), int(x)] == (255, 0, 0)).all():
-                    cv2.putText(self.frame, "Intersect detected", (300, 350), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0),
+                    cv2.putText(self.frame, "Intersect detected", (300, 350), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0),
                                 1, cv2.LINE_AA)
                     return ["Intersect detected"]
         cv2.putText(self.frame, "No Intersect", (300, 350), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0),
