@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 import pygame
-import math
+import time
 
 
 class Car:
@@ -9,25 +9,24 @@ class Car:
         self.car_num = car_num
         self.width = np.float(20)
         self.height = np.float(10)
-        self.diagonal = math.sqrt((self.width/2)**2 + (self.height/2)**2)
-        self.alpha = math.atan(self.height/self.width)
+        self.diagonal = np.sqrt((self.width/2)**2 + (self.height/2)**2)
+        self.alpha = np.arctan(self.height/self.width)
+        self.sin_alpha = np.sin(self.alpha)
+        self.cos_alpha = np.cos(self.alpha)
         self.center_coord = np.array([200, 200], np.float)
         self.rotate_angle = np.float(0)
-        self.Euler_coord = np.array(
-            [[math.cos(self.alpha + self.rotate_angle), math.sin(self.alpha + self.rotate_angle)],
-             [math.cos(-self.alpha + self.rotate_angle), math.sin(-self.alpha + self.rotate_angle)],
-             [math.cos(180 - self.alpha + self.rotate_angle), math.sin(180 - self.alpha + self.rotate_angle)],
-             [math.cos(-(180 - self.alpha) + self.rotate_angle), math.sin(-(180 - self.alpha) + self.rotate_angle)],
-             ], np.float)
-        self.coordinates = self.diagonal * self.Euler_coord + np.array(
-            [self.center_coord, self.center_coord, self.center_coord, self.center_coord], np.float)
-        self.coordinates_int = (self.coordinates + 0.5).astype(np.uint)
+        self.coordinates_int = (self.diagonal * np.array(
+            [[self.cos_alpha, self.sin_alpha],
+             [self.cos_alpha, -self.sin_alpha],
+             [-self.cos_alpha, -self.sin_alpha],
+             [-self.cos_alpha, self.sin_alpha]],
+            np.float) + np.repeat([self.center_coord], 4, axis=0) + 0.5).astype(np.uint)
         self.intersect = 0
 
     def calc_coords(self, rotate_angle_speed_ldf, speed_ldu):
         if speed_ldu > 0:
-            self.center_coord += np.array([speed_ldu * math.cos(self.rotate_angle),
-                                           speed_ldu * math.sin(self.rotate_angle)],
+            self.center_coord += np.array([speed_ldu * np.cos(self.rotate_angle),
+                                           speed_ldu * np.sin(self.rotate_angle)],
                                           np.float)
             if self.center_coord[0] - self.width/2 <= 5:
                 self.center_coord[0] = np.uint(self.width/2 + 5)
@@ -39,22 +38,25 @@ class Car:
             elif self.center_coord[1] + self.height/2 >= 695:
                 self.center_coord[1] = np.uint(695 - self.width/2)
 
-        if self.rotate_angle >= 2*math.pi:
-            self.rotate_angle -= 2*math.pi
-        elif self.rotate_angle <= -2 * math.pi:
-            self.rotate_angle += 2 * math.pi
+        if self.rotate_angle >= 2*np.pi:
+            self.rotate_angle -= 2*np.pi
+        elif self.rotate_angle <= -2 * np.pi:
+            self.rotate_angle += 2 * np.pi
 
         self.rotate_angle += rotate_angle_speed_ldf
+        sin_rotate = np.sin(self.rotate_angle)
+        cos_rotate = np.cos(self.rotate_angle)
+        cos_alpha_plus_rotate = self.cos_alpha*cos_rotate - self.sin_alpha*sin_rotate
+        sin_alpha_plus_rotate = self.sin_alpha*cos_rotate + self.cos_alpha*sin_rotate
+        cos_alpha_minus_rotate = self.cos_alpha*cos_rotate + self.sin_alpha*sin_rotate
+        sin_alpha_minus_rotate = self.sin_alpha*cos_rotate - self.cos_alpha*sin_rotate
 
-        self.Euler_coord = np.array(
-            [[math.cos(self.alpha+self.rotate_angle), math.sin(self.alpha+self.rotate_angle)],
-             [math.cos(-self.alpha + self.rotate_angle), math.sin(-self.alpha + self.rotate_angle)],
-             [math.cos(180 - self.alpha + self.rotate_angle), math.sin(180 - self.alpha + self.rotate_angle)],
-             [math.cos(-(180 - self.alpha) + self.rotate_angle), math.sin(-(180 - self.alpha) + self.rotate_angle)]],
-            np.float)
-        self.coordinates = self.diagonal*self.Euler_coord + np.array([self.center_coord, self.center_coord,
-                                                                      self.center_coord, self.center_coord])
-        self.coordinates_int = (self.coordinates + 0.5).astype(np.uint)
+        self.coordinates_int = (self.diagonal * np.array(
+            [[cos_alpha_plus_rotate, sin_alpha_plus_rotate],
+             [cos_alpha_minus_rotate, -sin_alpha_minus_rotate],
+             [-cos_alpha_plus_rotate, -sin_alpha_plus_rotate],
+             [-cos_alpha_minus_rotate, sin_alpha_minus_rotate]],
+            np.float) + np.repeat([self.center_coord], 4, axis=0) + 0.5).astype(np.uint)
 
 
 class Environment:
@@ -103,8 +105,7 @@ if __name__ == "__main__":
     display_surface = pygame.display.set_mode((1000, 700))
     pygame.display.set_caption('Racing boiz')
 
-    run = True
-    while run:
+    while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -115,9 +116,9 @@ if __name__ == "__main__":
         if keys[pygame.K_RIGHT] and keys[pygame.K_LEFT]:
             rotate_angle_speed = 0
         elif keys[pygame.K_RIGHT]:
-            rotate_angle_speed = math.pi/30
+            rotate_angle_speed = np.pi/30
         elif keys[pygame.K_LEFT]:
-            rotate_angle_speed = -math.pi/30
+            rotate_angle_speed = -np.pi/30
         if keys[pygame.K_SPACE]:
             speed = 10
         car_1.calc_coords(rotate_angle_speed, speed)
@@ -125,8 +126,8 @@ if __name__ == "__main__":
         intersect_detect = env_1.check_intersect(car_1.coordinates_int)
         frame = env_1.frame.swapaxes(0, 1)
 
-        display_surface.fill((255, 255, 255))
         my_surface = pygame.pixelcopy.make_surface(frame)
         display_surface.blit(my_surface, (0, 0))
         pygame.display.update()
         pygame.time.delay(10)
+        # time.sleep(10)
