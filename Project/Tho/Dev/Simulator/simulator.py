@@ -39,14 +39,14 @@ class Car:
 
     def update_coords(self, rotate_angle_speed_ldf, speed_ldu):
         if self.is_dead == 0:
-            if speed_ldu > 0:
-                self.center_coord += np.array([speed_ldu * np.cos(self.rotate_angle),
-                                               speed_ldu * np.sin(self.rotate_angle)],
-                                              np.float)
-                self.center_coord[0] = max((min(self.center_coord[0], np.uint(995-max(self.width, self.height)/2))),
-                                           np.uint(max(self.width, self.height)/2+5))
-                self.center_coord[1] = max((min(self.center_coord[1], np.uint(695-max(self.width, self.height)/2))),
-                                           np.uint(max(self.width, self.height)/2+5))
+            # if speed_ldu > 0:
+            self.center_coord += np.array([speed_ldu * np.cos(self.rotate_angle),
+                                           speed_ldu * np.sin(self.rotate_angle)],
+                                          np.float)
+            self.center_coord[0] = max((min(self.center_coord[0], np.uint(995-max(self.width, self.height)/2))),
+                                       np.uint(max(self.width, self.height)/2+5))
+            self.center_coord[1] = max((min(self.center_coord[1], np.uint(695-max(self.width, self.height)/2))),
+                                       np.uint(max(self.width, self.height)/2+5))
 
             if self.rotate_angle >= 2*np.pi:
                 self.rotate_angle -= 2*np.pi
@@ -84,8 +84,8 @@ class Car:
                     return 1
         return 0
 
-    def get_sensor_input(self, background, sensor_angle):
-        line_array = self.get_t_array(background.shape, sensor_angle)
+    def get_sensor_output(self, background, sensor_angle):
+        line_array = self.get_sensor_line(background.shape, sensor_angle)
         distance = -1
         sensor_range = np.array([[line_array[0, 0], line_array[1, 0]], [line_array[0, -1], line_array[1, -1]]])
         for index in range(line_array.shape[1]):
@@ -101,7 +101,7 @@ class Car:
                  (0, 0, 255), 2)
         return distance
 
-    def get_t_array(self, frame_size, angle):
+    def get_sensor_line(self, frame_size, angle):
         cos_angle = np.cos(angle)
         sin_angle = np.sin(angle)
         if cos_angle == 0:
@@ -142,14 +142,8 @@ def visualize(frame_ldu, visualize_show_ldb, ):
 
 
 def main():
-    # env = Environment()
     car_1 = Car(1)
-
     pygame.init()
-    # visualize_show = True
-    # if visualize_show:
-    #     display_surface = pygame.display.set_mode((1000, 700))
-    #     pygame.display.set_caption('Racingboiz simulator')
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -158,21 +152,24 @@ def main():
         keys = pygame.key.get_pressed()
         speed = 0
         rotate_angle_speed = 0
-        if keys[pygame.K_RIGHT] and keys[pygame.K_LEFT]:
-            rotate_angle_speed = 0
-        elif keys[pygame.K_RIGHT]:
-            rotate_angle_speed = np.pi/30
-        elif keys[pygame.K_LEFT]:
-            rotate_angle_speed = -np.pi/30
-        if keys[pygame.K_SPACE]:
-            speed = 10
         if keys[pygame.K_ESCAPE]:
+            pygame.quit()
+            quit()
+        if keys[pygame.K_RIGHT]:
+            rotate_angle_speed = np.pi/30
+        if keys[pygame.K_LEFT]:
+            rotate_angle_speed = -np.pi/30
+        if keys[pygame.K_UP]:
+            speed = 10
+        if keys[pygame.K_DOWN]:
+            speed = -10
+        if keys[pygame.K_SPACE]:
             main()
         car_1.update_coords(rotate_angle_speed, speed)
         env.update_env(car_1.coordinates_int)
-        sensor_1_output = car_1.get_sensor_input(env.background, car_1.rotate_angle-np.pi/4)
-        sensor_2_output = car_1.get_sensor_input(env.background, car_1.rotate_angle)
-        sensor_3_output = car_1.get_sensor_input(env.background, car_1.rotate_angle+np.pi/4)
+        sensor_1_output = car_1.get_sensor_output(env.background, car_1.rotate_angle - np.pi / 4)
+        sensor_2_output = car_1.get_sensor_output(env.background, car_1.rotate_angle)
+        sensor_3_output = car_1.get_sensor_output(env.background, car_1.rotate_angle + np.pi / 4)
         intersect_detect = car_1.check_border_intersect(env.background, env.frame)
         if intersect_detect == 1:
             cv2.putText(env.frame, "Intersect detected, you are dead :(", (700, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
