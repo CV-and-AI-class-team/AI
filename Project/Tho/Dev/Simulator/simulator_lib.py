@@ -13,7 +13,7 @@ class Environment:
         self.background = cv2.imread(self.Race_track_path, cv2.IMREAD_COLOR)
         self.frame = self.background.copy()
 
-    def update_env(self, car_class):
+    def draw_cars(self, car_class):
         self.frame = self.background.copy()
         for car in car_class:
             cv2.fillPoly(self.frame, [car.coordinates_int], (0, 0, 255))
@@ -21,14 +21,14 @@ class Environment:
 
 class IterCar(type):
     def __iter__(cls):
-        return iter(cls._allCar)
+        return iter(cls.allCar)
 
 
 class Car(metaclass=IterCar):
-    _allCar = []
+    allCar = []
 
     def __init__(self, visualize_enable):
-        self._allCar.append(self)
+        self.allCar.append(self)
 
         self.visualize = visualize_enable
         self.width = np.float(20)
@@ -138,9 +138,9 @@ class Car(metaclass=IterCar):
                                      -(self.center_coord[1] - 5) / sin_sensor_angle),
                               min(abs(1 / cos_sensor_angle), abs(1 / sin_sensor_angle)))
         line_array = np.array([np.clip(self.center_coord[0] + self.width / 2 * np.cos(self.rotate_angle) +
-                                       t*cos_sensor_angle, 0, 999),
+                                       t*cos_sensor_angle, 0, frame_size[1]-1),
                                np.clip(self.center_coord[1] + self.width / 2 * np.sin(self.rotate_angle) +
-                                       t*sin_sensor_angle, 0, 999)], np.uint)
+                                       t*sin_sensor_angle, 0, frame_size[0]-1)], np.uint)
         return line_array
 
     def update_all(self, velocity, rotate_angle_speed, env):
@@ -198,6 +198,7 @@ def get_keyboard_input():
     if keys[pygame.K_DOWN]:
         speed = -10
     if keys[pygame.K_SPACE]:
+        clean_up_cars(Car)
         visualize()
     return speed, rotate_angle_speed
 
@@ -225,13 +226,19 @@ def update_visualize_window(display_surface, env, car, sensors_output, sensors_l
     pygame.time.delay(10)
 
 
+def clean_up_cars(car_class):
+    for car in car_class:
+        if car.is_dead == 1:
+            car_class.allCar.pop(car_class.allCar.index(car))
+
+
 def visualize():
     env, display_surface = init_simulator(graphic_enable=True)
     car_1 = Car(visualize_enable=True)
     while True:
         velocity, rotate_angle_speed = get_keyboard_input()
         sensors_output, sensors_lines = car_1.update_all(2*velocity, rotate_angle_speed, env)
-        env.update_env(Car)
+        env.draw_cars(Car)
         update_visualize_window(display_surface, env, car_1, sensors_output, sensors_lines)
 
 
@@ -242,7 +249,7 @@ def non_visualize():
         velocity = 0
         rotate_angle_speed = 0
         sensors_output = car_1.update_all(velocity, rotate_angle_speed, env)
-        env.update_env(Car)
+        env.draw_cars(Car)
 
 
 if __name__ == "__main__":
