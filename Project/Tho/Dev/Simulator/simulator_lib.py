@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import pygame
 import os
+from shapely.geometry import LineString
 
 
 class Environment:
@@ -12,6 +13,12 @@ class Environment:
                                             "Car_track_model", "track_0.2.png")
         self.background = cv2.imread(self.Race_track_path, cv2.IMREAD_COLOR)
         self.frame = self.background.copy()
+        self.checkpoint_lines = np.array([[(63, 307), (249, 306)], [(108, 126), (250, 271)], [(255, 79), (286, 244)],
+                                          [(369, 84), (379, 252)], [(459, 88), (478, 261)], [(553, 85), (579, 288)],
+                                          [(630, 79), (690, 285)], [(771, 64), (756, 286)], [(940, 117), (783, 285)],
+                                          [(981, 301), (772, 339)], [(964, 489), (766, 382)], [(928, 603), (714, 441)],
+                                          [(669, 630), (657, 442)], [(543, 414), (546, 610)], [(444, 391), (418, 588)],
+                                          [(328, 370), (303, 577)], [(258, 361), (138, 574)], [(246, 343), (49, 447)]])
 
     def draw_cars(self, car_class):
         self.frame = self.background.copy()
@@ -29,7 +36,8 @@ class Car(metaclass=IterCar):
 
     def __init__(self, visualize_enable):
         self.allCar.append(self)
-
+        
+        self.reward = 0
         self.visualize = visualize_enable
         self.width = np.float(20)
         self.height = np.float(10)
@@ -37,8 +45,8 @@ class Car(metaclass=IterCar):
         self.alpha = np.arctan(self.height/self.width)
         self.sin_alpha = np.sin(self.alpha)
         self.cos_alpha = np.cos(self.alpha)
-        self.center_coord = np.array([200, 200], np.float)
-        self.rotate_angle = np.float(0)
+        self.center_coord = np.array([170, 350], np.float)
+        self.rotate_angle = np.float(-np.pi/2)
         self.coordinates_int = (self.diagonal * np.array(
             [[self.cos_alpha, self.sin_alpha],
              [self.cos_alpha, -self.sin_alpha],
@@ -46,6 +54,7 @@ class Car(metaclass=IterCar):
              [-self.cos_alpha, self.sin_alpha]],
             np.float) + np.repeat([self.center_coord], 4, axis=0) + 0.5).astype(np.uint)
         self.is_dead = 0
+        self.last_checkpoint = 17
 
     def update_coords(self, rotate_angle_speed_ldf, speed_ldu):
         if self.is_dead == 0:
@@ -89,6 +98,8 @@ class Car(metaclass=IterCar):
             for y in np.arange(start_y, end_y, 1):
                 if (background[int(y), int(x)] == (0, 0, 0)).all() and \
                         (frame[int(y), int(x)] == (0, 0, 255)).all():
+                    if self.is_dead == 0:
+                        self.reward -= 5
                     self.is_dead = 1
 
     def get_sensor_output(self, env, sensor_angle):
@@ -143,7 +154,32 @@ class Car(metaclass=IterCar):
                                        t*sin_sensor_angle, 0, frame_size[0]-1)], np.uint)
         return line_array
 
+    def get_reward(self, env):
+        checkpoint_intersected = -1
+        for i in range(env.checkpoint_lines.shape[0]):
+            checkpoint = LineString(env.checkpoint_lines[i])
+            car_edge = LineString([self.coordinates_int[1], self.coordinates_int[2]])
+            if not checkpoint.intersects(car_edge):
+                pass
+            else:
+                checkpoint_intersected = i
+        if checkpoint_intersected != -1:
+            if checkpoint_intersected != self.last_checkpoint:
+                if self.last_checkpoint == 17 and checkpoint_intersected == 0:
+                    self.reward += 1
+                elif self.last_checkpoint == 0 and checkpoint_intersected == 17:
+                    self.reward -= 1
+                elif checkpoint_intersected == self.last_checkpoint + 1:
+                    self.reward += 1
+                elif checkpoint_intersected == self.last_checkpoint - 1:
+                    self.reward -= 1
+                self.last_checkpoint = checkpoint_intersected
+        else:
+            pass
+        return self.reward
+
     def update_all(self, velocity, rotate_angle_speed, env):
+        reward = self.get_reward(env)
         self.check_border_intersect(env.background, env.frame)
         self.update_coords(rotate_angle_speed, velocity)
         if self.visualize:
@@ -155,7 +191,7 @@ class Car(metaclass=IterCar):
             sensors_output = np.array([sensor_1_output, sensor_2_output,
                                        sensor_3_output, sensor_4_output, sensor_5_output])
             sensors_lines = np.array([sensor_1_line, sensor_2_line, sensor_3_line, sensor_4_line, sensor_5_line])
-            return sensors_output, sensors_lines
+            return sensors_output, reward, self.is_dead, sensors_lines
         else:
             sensor_1_output = self.get_sensor_output(env, self.rotate_angle)
             sensor_2_output = self.get_sensor_output(env, self.rotate_angle + np.pi / 4)
@@ -164,7 +200,7 @@ class Car(metaclass=IterCar):
             sensor_5_output = self.get_sensor_output(env, self.rotate_angle - np.pi * 3.2 / 4)
             sensors_output = np.array([sensor_1_output, sensor_2_output,
                                        sensor_3_output, sensor_4_output, sensor_5_output])
-            return sensors_output
+            return sensors_output, reward, self.is_dead
 
 
 def init_simulator(graphic_enable):
@@ -215,9 +251,14 @@ def update_visualize_window(display_surface, env, car, sensors_output, sensors_l
                     % (i+1, sensors_output[i]), (30, 30 + 30*i),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (128, 0, 128), 1, cv2.LINE_AA)
     if sensors_output.min() != -1:
-        for i in range(sensors_lines.shape[0]):
+        for i in range(len(sensors_lines)):
             cv2.line(env.frame, tuple(sensors_lines[i][0]), tuple(sensors_lines[i][1]),
                      (64, 64, 242), 1)
+
+    for i in range(env.checkpoint_lines.shape[0]):
+        cv2.line(env.frame, tuple(env.checkpoint_lines[i][0]), tuple(env.checkpoint_lines[i][1]), (128, 0, 128), 2)
+    cv2.putText(env.frame, "Reward is: %d" % car.reward, (600, 100),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 200), 1, cv2.LINE_AA)
     frame_ldu = env.frame.swapaxes(0, 1)
     frame_ldu = cv2.cvtColor(frame_ldu, cv2.COLOR_BGR2RGB)
     my_surface = pygame.pixelcopy.make_surface(frame_ldu)
@@ -236,8 +277,10 @@ def visualize():
     env, display_surface = init_simulator(graphic_enable=True)
     car_1 = Car(visualize_enable=True)
     while True:
+        sensors_lines = []
         velocity, rotate_angle_speed = get_keyboard_input()
-        sensors_output, sensors_lines = car_1.update_all(2*velocity, rotate_angle_speed, env)
+        sensors_output, reward, terminate, sensors_lines[len(sensors_lines):] \
+            = car_1.update_all(velocity, rotate_angle_speed, env)
         env.draw_cars(Car)
         update_visualize_window(display_surface, env, car_1, sensors_output, sensors_lines)
 
@@ -248,7 +291,7 @@ def non_visualize():
     while True:
         velocity = 0
         rotate_angle_speed = 0
-        sensors_output = car_1.update_all(velocity, rotate_angle_speed, env)
+        sensors_output, reward, terminate = car_1.update_all(velocity, rotate_angle_speed, env)
         env.draw_cars(Car)
 
 
