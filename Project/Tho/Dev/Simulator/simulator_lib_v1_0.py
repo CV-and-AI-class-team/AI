@@ -10,7 +10,7 @@ class Environment:
         self.width = 1000
         self.height = 700
         self.Race_track_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                            "Car_track_model", "track_0.2.png")
+                                            "Car_track_model", "Car_track_model/track_0.2.png")
         self.background = cv2.imread(self.Race_track_path, cv2.IMREAD_COLOR)
         self.frame = self.background.copy()
         self.checkpoint_lines = np.array([[(63, 307), (249, 306)], [(108, 126), (250, 271)], [(255, 79), (286, 244)],
@@ -35,18 +35,17 @@ class Car(metaclass=IterCar):
     allCar = []
 
     def __init__(self, visualize_enable):
-        self.allCar.append(self)
-        
+
         self.reward = 0
         self.visualize = visualize_enable
         self.width = np.float(20)
         self.height = np.float(10)
-        self.diagonal = np.sqrt((self.width/2)**2 + (self.height/2)**2)
-        self.alpha = np.arctan(self.height/self.width)
+        self.diagonal = np.sqrt((self.width / 2) ** 2 + (self.height / 2) ** 2)
+        self.alpha = np.arctan(self.height / self.width)
         self.sin_alpha = np.sin(self.alpha)
         self.cos_alpha = np.cos(self.alpha)
         self.center_coord = np.array([170, 350], np.float)
-        self.rotate_angle = np.float(-np.pi/2)
+        self.rotate_angle = np.float(-np.pi / 2)
         self.coordinates_int = (self.diagonal * np.array(
             [[self.cos_alpha, self.sin_alpha],
              [self.cos_alpha, -self.sin_alpha],
@@ -61,23 +60,23 @@ class Car(metaclass=IterCar):
             self.center_coord += np.array([speed_ldu * np.cos(self.rotate_angle),
                                            speed_ldu * np.sin(self.rotate_angle)],
                                           np.float)
-            self.center_coord[0] = max((min(self.center_coord[0], np.uint(995-max(self.width, self.height)/2))),
-                                       np.uint(max(self.width, self.height)/2+5))
-            self.center_coord[1] = max((min(self.center_coord[1], np.uint(695-max(self.width, self.height)/2))),
-                                       np.uint(max(self.width, self.height)/2+5))
+            self.center_coord[0] = max((min(self.center_coord[0], np.uint(995 - max(self.width, self.height) / 2))),
+                                       np.uint(max(self.width, self.height) / 2 + 5))
+            self.center_coord[1] = max((min(self.center_coord[1], np.uint(695 - max(self.width, self.height) / 2))),
+                                       np.uint(max(self.width, self.height) / 2 + 5))
 
-            if self.rotate_angle >= 2*np.pi:
-                self.rotate_angle -= 2*np.pi
-            elif self.rotate_angle <= -2*np.pi:
-                self.rotate_angle += 2*np.pi
+            if self.rotate_angle >= 2 * np.pi:
+                self.rotate_angle -= 2 * np.pi
+            elif self.rotate_angle <= -2 * np.pi:
+                self.rotate_angle += 2 * np.pi
 
             self.rotate_angle += rotate_angle_speed_ldf
             sin_rotate = np.sin(self.rotate_angle)
             cos_rotate = np.cos(self.rotate_angle)
-            cos_alpha_plus_rotate = self.cos_alpha*cos_rotate - self.sin_alpha*sin_rotate
-            sin_alpha_plus_rotate = self.sin_alpha*cos_rotate + self.cos_alpha*sin_rotate
-            cos_alpha_minus_rotate = self.cos_alpha*cos_rotate + self.sin_alpha*sin_rotate
-            sin_alpha_minus_rotate = self.sin_alpha*cos_rotate - self.cos_alpha*sin_rotate
+            cos_alpha_plus_rotate = self.cos_alpha * cos_rotate - self.sin_alpha * sin_rotate
+            sin_alpha_plus_rotate = self.sin_alpha * cos_rotate + self.cos_alpha * sin_rotate
+            cos_alpha_minus_rotate = self.cos_alpha * cos_rotate + self.sin_alpha * sin_rotate
+            sin_alpha_minus_rotate = self.sin_alpha * cos_rotate - self.cos_alpha * sin_rotate
 
             self.coordinates_int = (self.diagonal * np.array(
                 [[cos_alpha_plus_rotate, sin_alpha_plus_rotate],
@@ -109,9 +108,9 @@ class Car(metaclass=IterCar):
         for index in range(line_array.shape[1]):
             if (env.background[line_array[1, index], line_array[0, index]] == (0, 0, 0)).all():
                 distance = np.sqrt((self.center_coord[1] +
-                                    np.sin(self.rotate_angle)*self.diagonal-line_array[1, index]) ** 2 +
+                                    np.sin(self.rotate_angle) * self.diagonal - line_array[1, index]) ** 2 +
                                    (self.center_coord[0] +
-                                    np.cos(self.rotate_angle)*self.diagonal-line_array[0, index]) ** 2)
+                                    np.cos(self.rotate_angle) * self.diagonal - line_array[0, index]) ** 2)
                 if self.visualize:
                     sensor_range[1][0] = line_array[0, index]
                     sensor_range[1][1] = line_array[1, index]
@@ -127,31 +126,31 @@ class Car(metaclass=IterCar):
         cos_sensor_angle = np.cos(sensor_angle)
         sin_sensor_angle = np.sin(sensor_angle)
         if cos_sensor_angle == 0:
-            t = np.arange(0, (frame_size[0]-5-self.center_coord[1]) / sin_sensor_angle, 1 / sin_sensor_angle)
+            t = np.arange(0, (frame_size[0] - 5 - self.center_coord[1]) / sin_sensor_angle, 1 / sin_sensor_angle)
         elif sin_sensor_angle == 0:
-            t = np.arange(0, (frame_size[1]-5-self.center_coord[0]) / cos_sensor_angle, 1 / cos_sensor_angle)
+            t = np.arange(0, (frame_size[1] - 5 - self.center_coord[0]) / cos_sensor_angle, 1 / cos_sensor_angle)
         elif sin_sensor_angle > 0:
             if cos_sensor_angle > 0:
-                t = np.arange(0, min((frame_size[1]-5-self.center_coord[0]) / cos_sensor_angle,
-                                     (frame_size[0]-5-self.center_coord[1]) / sin_sensor_angle),
+                t = np.arange(0, min((frame_size[1] - 5 - self.center_coord[0]) / cos_sensor_angle,
+                                     (frame_size[0] - 5 - self.center_coord[1]) / sin_sensor_angle),
                               min(1 / cos_sensor_angle, 1 / sin_sensor_angle))
             else:
                 t = np.arange(0, min(-(self.center_coord[0] - 5) / cos_sensor_angle,
-                                     (frame_size[0]-5-self.center_coord[1]) / sin_sensor_angle),
+                                     (frame_size[0] - 5 - self.center_coord[1]) / sin_sensor_angle),
                               min(abs(1 / cos_sensor_angle), abs(1 / sin_sensor_angle)))
         else:
             if cos_sensor_angle > 0:
                 t = np.arange(0, min(-(self.center_coord[1] - 5) / sin_sensor_angle,
-                                     (frame_size[1]-5-self.center_coord[0]) / cos_sensor_angle),
+                                     (frame_size[1] - 5 - self.center_coord[0]) / cos_sensor_angle),
                               min(abs(1 / cos_sensor_angle), abs(1 / sin_sensor_angle)))
             else:
                 t = np.arange(0, min(-(self.center_coord[0] - 5) / cos_sensor_angle,
                                      -(self.center_coord[1] - 5) / sin_sensor_angle),
                               min(abs(1 / cos_sensor_angle), abs(1 / sin_sensor_angle)))
         line_array = np.array([np.clip(self.center_coord[0] + self.width / 2 * np.cos(self.rotate_angle) +
-                                       t*cos_sensor_angle, 0, frame_size[1]-1),
+                                       t * cos_sensor_angle, 0, frame_size[1] - 1),
                                np.clip(self.center_coord[1] + self.width / 2 * np.sin(self.rotate_angle) +
-                                       t*sin_sensor_angle, 0, frame_size[0]-1)], np.uint)
+                                       t * sin_sensor_angle, 0, frame_size[0] - 1)], np.uint)
         return line_array
 
     def get_reward(self, env):
@@ -186,7 +185,7 @@ class Car(metaclass=IterCar):
             sensor_1_output, sensor_1_line = self.get_sensor_output(env, self.rotate_angle)
             sensor_2_output, sensor_2_line = self.get_sensor_output(env, self.rotate_angle + np.pi / 4)
             sensor_3_output, sensor_3_line = self.get_sensor_output(env, self.rotate_angle - np.pi / 4)
-            sensor_4_output, sensor_4_line = self.get_sensor_output(env, self.rotate_angle + np.pi * 3.2/4)
+            sensor_4_output, sensor_4_line = self.get_sensor_output(env, self.rotate_angle + np.pi * 3.2 / 4)
             sensor_5_output, sensor_5_line = self.get_sensor_output(env, self.rotate_angle - np.pi * 3.2 / 4)
             sensors_output = np.array([sensor_1_output, sensor_2_output,
                                        sensor_3_output, sensor_4_output, sensor_5_output])
@@ -248,7 +247,7 @@ def update_visualize_window(display_surface, env, car, sensors_output, sensors_l
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 200), 1, cv2.LINE_AA)
     for i in range(sensors_output.shape[0]):
         cv2.putText(env.frame, "Sensor %d: %.3f"
-                    % (i+1, sensors_output[i]), (30, 30 + 30*i),
+                    % (i + 1, sensors_output[i]), (30, 30 + 30 * i),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (128, 0, 128), 1, cv2.LINE_AA)
     if sensors_output.min() != -1:
         for i in range(len(sensors_lines)):
