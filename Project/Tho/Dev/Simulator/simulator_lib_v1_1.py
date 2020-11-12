@@ -49,8 +49,8 @@ class CarTrackSimulator:
             self.pre_sensors_output = sensors_output
         self.observation_space = 5
         self.action_space = 2
-        self.action_space_low = np.array([-20, -np.pi/10])
-        self.action_space_high = np.array([20, np.pi/10])
+        self.action_space_low = np.array([-10, -np.pi/10])
+        self.action_space_high = np.array([10, np.pi/10])
 
     def step(self, velocity, rotate_angle_speed):
         velocity = np.clip(velocity, self.action_space_low[0], self.action_space_high[0])
@@ -77,7 +77,7 @@ class CarTrackSimulator:
                 if min(sensor_1_output, sensor_2_output, sensor_3_output, sensor_4_output, sensor_5_output) < 5:
                     sensors_output = self.pre_sensors_output
                     sensors_lines = self.pre_sensors_lines
-                    self.car_1.reward -= 5
+                    self.car_1.reward -= 10
                     self.car_1.is_dead = 1
                 else:
                     self.pre_sensors_output = sensors_output
@@ -101,7 +101,7 @@ class CarTrackSimulator:
                                            sensor_3_output, sensor_4_output, sensor_5_output])
                 if min(sensor_1_output, sensor_2_output, sensor_3_output, sensor_4_output, sensor_5_output) < 5:
                     sensors_output = self.pre_sensors_output
-                    self.car_1.reward -= 5
+                    self.car_1.reward -= 10
                     self.car_1.is_dead = 1
                 else:
                     self.pre_sensors_output = sensors_output
@@ -175,7 +175,7 @@ class CarTrackSimulator:
                     if (background[int(y), int(x)] == (0, 0, 0)).all() and \
                             (frame[int(y), int(x)] == (0, 0, 255)).all():
                         if self.is_dead == 0:
-                            self.reward -= 5
+                            self.reward -= 10
                         self.is_dead = 1
 
         def get_sensor_output(self, env, sensor_angle):
@@ -284,7 +284,7 @@ class CarTrackSimulator:
         my_surface = pygame.pixelcopy.make_surface(frame_ldu)
         self.display_surface.blit(my_surface, (0, 0))
         pygame.display.update()
-        pygame.time.delay(10)
+        # pygame.time.delay(10)
 
     def get_keyboard_input(self):
         for event in pygame.event.get():

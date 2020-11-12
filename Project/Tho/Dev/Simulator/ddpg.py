@@ -20,7 +20,7 @@ print("Min Value of Action ->  {}".format(lower_bound))
 
 
 class QUActionNoise:
-    def __init__(self, mean, std_deviation, theta=0.15, dt=1e-2, x_initial=None):
+    def __init__(self, mean, std_deviation, theta=0.15, dt=1, x_initial=None):
         self.theta = theta
         self.mean = mean
         self.std_dev = std_deviation
@@ -174,8 +174,8 @@ target_critic = get_critic()
 target_actor.set_weights(actor_model.get_weights())
 target_critic.set_weights(critic_model.get_weights())
 
-critic_lr = 0.000002
-actor_lr = 0.000001
+critic_lr = 0.0002
+actor_lr = 0.0001
 
 critic_optimizer = tf.keras.optimizers.Adam(critic_lr)
 actor_optimizer = tf.keras.optimizers.Adam(actor_lr)
