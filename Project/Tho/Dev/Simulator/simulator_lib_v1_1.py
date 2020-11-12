@@ -47,8 +47,15 @@ class CarTrackSimulator:
             sensors_output = np.array([sensor_1_output, sensor_2_output,
                                        sensor_3_output, sensor_4_output, sensor_5_output])
             self.pre_sensors_output = sensors_output
+        self.observation_space = 5
+        self.action_space = 2
+        self.action_space_low = np.array([-20, -np.pi/10])
+        self.action_space_high = np.array([20, np.pi/10])
 
     def step(self, velocity, rotate_angle_speed):
+        velocity = np.clip(velocity, self.action_space_low[0], self.action_space_high[0])
+        rotate_angle_speed = np.clip(rotate_angle_speed, self.action_space_low[1], self.action_space_high[1])
+
         self.car_1.check_border_intersect(self.background, self.frame)
         self.car_1.update_coords(rotate_angle_speed, velocity)
         reward = self.car_1.get_reward(self)
@@ -70,6 +77,7 @@ class CarTrackSimulator:
                 if min(sensor_1_output, sensor_2_output, sensor_3_output, sensor_4_output, sensor_5_output) < 5:
                     sensors_output = self.pre_sensors_output
                     sensors_lines = self.pre_sensors_lines
+                    self.car_1.reward -= 5
                     self.car_1.is_dead = 1
                 else:
                     self.pre_sensors_output = sensors_output
@@ -93,11 +101,13 @@ class CarTrackSimulator:
                                            sensor_3_output, sensor_4_output, sensor_5_output])
                 if min(sensor_1_output, sensor_2_output, sensor_3_output, sensor_4_output, sensor_5_output) < 5:
                     sensors_output = self.pre_sensors_output
+                    self.car_1.reward -= 5
                     self.car_1.is_dead = 1
                 else:
                     self.pre_sensors_output = sensors_output
             else:
                 sensors_output = self.pre_sensors_output
+
         return sensors_output, reward, self.car_1.is_dead
 
     class Car:
@@ -276,8 +286,7 @@ class CarTrackSimulator:
         pygame.display.update()
         pygame.time.delay(10)
 
-    @staticmethod
-    def get_keyboard_input(reset_function):
+    def get_keyboard_input(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -297,7 +306,9 @@ class CarTrackSimulator:
         if keys[pygame.K_DOWN]:
             speed = -10
         if keys[pygame.K_SPACE]:
-            reset_function()
+            # reset_function()
+            self.car_1.__init__(visualize_enable=self.visualize_enable)
+
         return speed, rotate_angle_speed
 
     @staticmethod
@@ -309,9 +320,8 @@ class CarTrackSimulator:
 def visualize():
     env = CarTrackSimulator(visualize_enable=True)
     while True:
-        velocity, rotate_angle_speed = env.get_keyboard_input(visualize)
+        velocity, rotate_angle_speed = env.get_keyboard_input()
         sensors_output, reward, terminate = env.step(1.5 * velocity, rotate_angle_speed)
-        # sensors_output, reward, terminate = env.step(1, 2, env)
         print(sensors_output, reward, terminate)
 
 
