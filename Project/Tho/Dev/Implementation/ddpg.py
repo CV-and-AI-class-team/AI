@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-env = CarTrackSimulator(visualize_enable=True)
+env = CarTrackSimulator(visualize_enable=False)
 
 num_states = env.observation_space
 num_actions = env.action_space
@@ -164,7 +164,7 @@ def policy(state, noise_object):
     return [np.squeeze(legal_action)]
 
 
-std_dev = 0.2
+std_dev = 0.1
 ou_noise = QUActionNoise(mean=np.zeros(2), std_deviation=float(std_dev) * np.ones(2))
 
 actor_model = get_actor()

@@ -7,6 +7,10 @@ from shapely.geometry import LineString
 
 class CarTrackSimulator:
     def __init__(self, visualize_enable):
+        self.observation_space = 5
+        self.action_space = 2
+        self.action_space_low = np.array([-10, -np.pi/40])
+        self.action_space_high = np.array([10, np.pi/40])
         self.visualize_enable = visualize_enable
         self.width = 1000
         self.height = 700
@@ -25,7 +29,6 @@ class CarTrackSimulator:
         for i in range(self.checkpoint_lines.shape[0]):
             self.checkpoint_center[i][0] = (self.checkpoint_lines[i][0][0] + self.checkpoint_lines[i][1][0]) / 2
             self.checkpoint_center[i][1] = (self.checkpoint_lines[i][0][1] + self.checkpoint_lines[i][1][1]) / 2
-        self.display_surface = pygame.display.set_mode((1000, 700))
         self.car_1 = self.Car(visualize_enable=self.visualize_enable)
         if self.visualize_enable:
             self.init_pygame()
@@ -52,10 +55,6 @@ class CarTrackSimulator:
             sensors_output = np.array([sensor_1_output, sensor_2_output,
                                        sensor_3_output, sensor_4_output, sensor_5_output])
             self.pre_sensors_output = sensors_output
-        self.observation_space = 5
-        self.action_space = 2
-        self.action_space_low = np.array([-10, -np.pi/40])
-        self.action_space_high = np.array([10, np.pi/40])
 
     def step(self, velocity, rotate_angle_speed):
         velocity = np.clip(velocity, self.action_space_low[0], self.action_space_high[0])
@@ -63,7 +62,8 @@ class CarTrackSimulator:
 
         self.car_1.check_border_intersect(self.background, self.frame)
         self.car_1.update_coords(rotate_angle_speed, velocity)
-        reward = self.car_1.get_reward(self)
+        if self.car_1.is_dead != 1:
+            reward = self.car_1.get_reward(self)
         self.draw_cars(self.car_1)
         if self.visualize_enable:
             if not self.car_1.is_dead:
@@ -82,7 +82,7 @@ class CarTrackSimulator:
                 if min(sensor_1_output, sensor_2_output, sensor_3_output, sensor_4_output, sensor_5_output) < 5:
                     sensors_output = self.pre_sensors_output
                     sensors_lines = self.pre_sensors_lines
-                    self.car_1.checkpoint_reward -= 10
+                    self.car_1.total_reward -= self.car_1.dead_penalty
                     self.car_1.is_dead = 1
                 else:
                     self.pre_sensors_output = sensors_output
@@ -106,18 +106,20 @@ class CarTrackSimulator:
                                            sensor_3_output, sensor_4_output, sensor_5_output])
                 if min(sensor_1_output, sensor_2_output, sensor_3_output, sensor_4_output, sensor_5_output) < 5:
                     sensors_output = self.pre_sensors_output
-                    self.car_1.checkpoint_reward -= 10
+                    self.car_1.total_reward -= self.car_1.dead_penalty
                     self.car_1.is_dead = 1
                 else:
                     self.pre_sensors_output = sensors_output
             else:
                 sensors_output = self.pre_sensors_output
 
-        return sensors_output, reward, self.car_1.is_dead
+        return sensors_output, self.car_1.total_reward, self.car_1.is_dead
 
     class Car:
         def __init__(self, visualize_enable):
             self.checkpoint_reward = 0
+            self.checkpoint_reward_step = 10
+            self.dead_penalty = 100
             self.total_reward = 0
             self.visualize = visualize_enable
             self.width = np.float(20)
@@ -126,7 +128,7 @@ class CarTrackSimulator:
             self.alpha = np.arctan(self.height / self.width)
             self.sin_alpha = np.sin(self.alpha)
             self.cos_alpha = np.cos(self.alpha)
-            self.center_coord = np.array([170, 350], np.float)
+            self.center_coord = np.array([120, 350], np.float)
             self.rotate_angle = np.float(-np.pi / 2)
             self.coordinates_int = (self.diagonal * np.array(
                 [[self.cos_alpha, self.sin_alpha],
@@ -181,7 +183,7 @@ class CarTrackSimulator:
                     if (background[int(y), int(x)] == (0, 0, 0)).all() and \
                             (frame[int(y), int(x)] == (0, 0, 255)).all():
                         if self.is_dead == 0:
-                            self.checkpoint_reward -= 10
+                            self.total_reward -= self.dead_penalty
                         self.is_dead = 1
 
         def get_sensor_output(self, env, sensor_angle):
@@ -248,13 +250,13 @@ class CarTrackSimulator:
             if checkpoint_intersected != -1:
                 if checkpoint_intersected != self.last_checkpoint:
                     if self.last_checkpoint == 17 and checkpoint_intersected == 0:
-                        self.checkpoint_reward += 1
+                        self.checkpoint_reward += self.checkpoint_reward_step
                     elif self.last_checkpoint == 0 and checkpoint_intersected == 17:
-                        self.checkpoint_reward -= 1
+                        self.checkpoint_reward -= self.checkpoint_reward_step
                     elif checkpoint_intersected == self.last_checkpoint + 1:
-                        self.checkpoint_reward += 1
+                        self.checkpoint_reward += self.checkpoint_reward_step
                     elif checkpoint_intersected == self.last_checkpoint - 1:
-                        self.checkpoint_reward -= 1
+                        self.checkpoint_reward -= self.checkpoint_reward_step
                     self.last_checkpoint = checkpoint_intersected
             else:
                 pass
@@ -323,9 +325,9 @@ class CarTrackSimulator:
 
         return speed, rotate_angle_speed
 
-    @staticmethod
-    def init_pygame():
+    def init_pygame(self):
         pygame.init()
+        self.display_surface = pygame.display.set_mode((1000, 700))
         pygame.display.set_caption('Racingboiz simulator')
 
 

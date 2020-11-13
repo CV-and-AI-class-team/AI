@@ -131,10 +131,9 @@ def get_critic():
     state_input = layers.Input(shape=(num_states))
     state_out = layers.Dense(16, activation="relu")(state_input)
     state_out = layers.Dense(32, activation="relu")(state_out)
-    state_out = layers.Dense(64, activation="relu")(state_out)
 
     action_input = layers.Input(shape=(num_actions))
-    action_out = layers.Dense(64, activation="relu")(action_input)
+    action_out = layers.Dense(32, activation="relu")(action_input)
 
     concat = layers.Concatenate()([state_out, action_out])
 
@@ -156,9 +155,9 @@ def policy(state, noise_object):
     sampled_actions = sampled_actions.numpy() + noise
     # sampled_actions = sampled_actions.numpy()
     # legal_action = np.clip(sampled_actions, lower_bound, upper_bound)
-    legal_action = sampled_actions
-    # print(legal_action)
-
+    legal_action = np.clip(sampled_actions, [-1, -1], [1, 1])
+    # legal_action = sampled_actions
+    # print(legal_actio
     return [np.squeeze(legal_action)]
 
 
@@ -174,19 +173,19 @@ target_critic = get_critic()
 target_actor.set_weights(actor_model.get_weights())
 target_critic.set_weights(critic_model.get_weights())
 
-critic_lr = 0.0002
+critic_lr = 0.00002
 actor_lr = 0.0001
 
 critic_optimizer = tf.keras.optimizers.Adam(critic_lr)
 actor_optimizer = tf.keras.optimizers.Adam(actor_lr)
 
-total_episodes = 100000
+total_episodes = 10000
 
-gamma = 0.99
+gamma = 0.9999
 
 tau = 0.005
 
-buffer = Buffer(5000, 1000)
+buffer = Buffer(50000, 5000)
 
 ep_reward_list = []
 avg_reward_list = []
@@ -196,19 +195,26 @@ for ep in range(total_episodes):
     env.car_1.__init__(visualize_enable=env.visualize_enable)
     prev_state, reward, done = env.step(0, 0)
     episodic_reward = 0
-    start = time.time()
+    live_counter = 20
+    pre_reward = 0
     while True:
-        stop = time.time()
+        live_counter -= 1
         tf_prev_state = tf.expand_dims(tf.convert_to_tensor(prev_state), 0)
 
         action = policy(tf_prev_state, ou_noise)
-
-        state, reward, done = env.step(action[0][0]*upper_bound[0], action[0][1]*upper_bound[1])
-
-        if stop - start > 10 and reward < 2:
-            reward -= 2
-            done = 1
-
+        if env.visualize_enable == 1:
+            _, _ = env.get_keyboard_input()
+        state, reward, done = env.step(action[0][0]*upper_bound[0]+2*upper_bound[0], action[0][1]*upper_bound[1])
+        reward += action[0][0]*upper_bound[0]/2+upper_bound[0]
+        if live_counter == 0:
+            if reward - pre_reward < 1:
+                reward -= 15*pre_reward
+                done = 1
+            else:
+                pre_reward = reward
+                live_counter = 20
+        else:
+            pass
         buffer.record((prev_state, [action[0][0], action[0][1]], reward, state))
 
         episodic_reward += reward
@@ -219,6 +225,7 @@ for ep in range(total_episodes):
         if done == 1:
             break
         prev_state = state
+    print("Episodic reward is: %0.5f" % episodic_reward)
     ep_reward_list.append(episodic_reward)
 
     # Mean of last 40 episodes

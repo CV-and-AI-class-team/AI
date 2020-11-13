@@ -256,7 +256,7 @@ def update_visualize_window(display_surface, env, car, sensors_output, sensors_l
 
     for i in range(env.checkpoint_lines.shape[0]):
         cv2.line(env.frame, tuple(env.checkpoint_lines[i][0]), tuple(env.checkpoint_lines[i][1]), (128, 0, 128), 2)
-    cv2.putText(env.frame, "Reward is: %d" % car.checkpoint_reward, (600, 100),
+    cv2.putText(env.frame, "Reward is: %d" % car.checkpoint_reward_step, (600, 100),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 200), 1, cv2.LINE_AA)
     frame_ldu = env.frame.swapaxes(0, 1)
     frame_ldu = cv2.cvtColor(frame_ldu, cv2.COLOR_BGR2RGB)
