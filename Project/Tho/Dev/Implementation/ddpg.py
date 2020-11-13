@@ -4,7 +4,6 @@ from tensorflow.keras import layers
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-import tensorflow_addons as tfa
 
 env = CarTrackSimulator(visualize_enable=True)
 
@@ -119,8 +118,10 @@ def get_actor():
     last_init = tf.random_uniform_initializer(minval=-0.003, maxval=0.003)
 
     inputs = layers.Input(shape=(num_states,))
-    out = layers.Dense(256, activation="relu")(inputs)
-    out = layers.Dense(256, activation="relu")(out)
+    out = layers.Dense(16, activation="relu")(inputs)
+    out = layers.Dense(32, activation="relu")(out)
+    out = layers.Dense(32, activation="relu")(out)
+    out = layers.Dense(16, activation="relu")(out)
     outputs = layers.Dense(2, activation="tanh", kernel_initializer=last_init)(out)
 
     model = tf.keras.Model(inputs, outputs)
@@ -134,12 +135,13 @@ def get_critic():
     state_out = layers.Dense(64, activation="relu")(state_out)
 
     action_input = layers.Input(shape=(num_actions))
-    action_out = layers.Dense(64, activation="relu")(action_input)
+    action_out = layers.Dense(32, activation="relu")(action_input)
+    action_out = layers.Dense(64, activation="relu")(action_out)
 
     concat = layers.Concatenate()([state_out, action_out])
 
-    out = layers.Dense(256, activation="relu")(concat)
-    out = layers.Dense(256, activation="relu")(out)
+    out = layers.Dense(512, activation="relu")(concat)
+    out = layers.Dense(512, activation="relu")(out)
     outputs = layers.Dense(1)(out)
 
     model = tf.keras.Model([state_input, action_input], outputs)
@@ -162,7 +164,7 @@ def policy(state, noise_object):
     return [np.squeeze(legal_action)]
 
 
-std_dev = 0.1
+std_dev = 0.2
 ou_noise = QUActionNoise(mean=np.zeros(2), std_deviation=float(std_dev) * np.ones(2))
 
 actor_model = get_actor()
@@ -175,18 +177,18 @@ target_actor.set_weights(actor_model.get_weights())
 target_critic.set_weights(critic_model.get_weights())
 
 critic_lr = 0.000002
-actor_lr = 0.000001
+actor_lr = 0.00001
 
 critic_optimizer = tf.keras.optimizers.Adam(critic_lr)
 actor_optimizer = tf.keras.optimizers.Adam(actor_lr)
 
-total_episodes = 100000
+total_episodes = 10000
 
 gamma = 0.99
 
-tau = 0.005
+tau = 0.0005
 
-buffer = Buffer(5000, 1000)
+buffer = Buffer(50000, 10000)
 
 ep_reward_list = []
 avg_reward_list = []
@@ -196,19 +198,26 @@ for ep in range(total_episodes):
     env.car_1.__init__(visualize_enable=env.visualize_enable)
     prev_state, reward, done = env.step(0, 0)
     episodic_reward = 0
-    start = time.time()
+    live_counter = 100
+    pre_reward = 0
     while True:
+        live_counter -= 1
         stop = time.time()
         tf_prev_state = tf.expand_dims(tf.convert_to_tensor(prev_state), 0)
 
         action = policy(tf_prev_state, ou_noise)
 
+        _, _ = env.get_keyboard_input()
         state, reward, done = env.step(action[0][0]*upper_bound[0], action[0][1]*upper_bound[1])
-
-        if stop - start > 10 and reward < 2:
-            reward -= 2
-            done = 1
-
+        if live_counter == 0:
+            if reward - pre_reward < 1:
+                reward -= 5
+                done = 1
+            else:
+                pre_reward = reward
+                live_counter = 100
+        else:
+            pass
         buffer.record((prev_state, [action[0][0], action[0][1]], reward, state))
 
         episodic_reward += reward

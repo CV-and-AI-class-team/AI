@@ -19,7 +19,12 @@ class CarTrackSimulator:
                                           [(630, 79), (690, 285)], [(771, 64), (756, 286)], [(940, 117), (783, 285)],
                                           [(981, 301), (772, 339)], [(964, 489), (766, 382)], [(928, 603), (714, 441)],
                                           [(669, 630), (657, 442)], [(543, 414), (546, 610)], [(444, 391), (418, 588)],
-                                          [(328, 370), (303, 577)], [(258, 361), (138, 574)], [(246, 343), (49, 447)]])
+                                          [(328, 370), (303, 577)], [(258, 361), (138, 574)], [(246, 343), (49, 447)]],
+                                         dtype=np.uint32)
+        self.checkpoint_center = np.zeros((self.checkpoint_lines.shape[0], 2), dtype=np.uint32)
+        for i in range(self.checkpoint_lines.shape[0]):
+            self.checkpoint_center[i][0] = (self.checkpoint_lines[i][0][0] + self.checkpoint_lines[i][1][0]) / 2
+            self.checkpoint_center[i][1] = (self.checkpoint_lines[i][0][1] + self.checkpoint_lines[i][1][1]) / 2
         self.display_surface = pygame.display.set_mode((1000, 700))
         self.car_1 = self.Car(visualize_enable=self.visualize_enable)
         if self.visualize_enable:
@@ -49,8 +54,8 @@ class CarTrackSimulator:
             self.pre_sensors_output = sensors_output
         self.observation_space = 5
         self.action_space = 2
-        self.action_space_low = np.array([-10, -np.pi/10])
-        self.action_space_high = np.array([10, np.pi/10])
+        self.action_space_low = np.array([-10, -np.pi/40])
+        self.action_space_high = np.array([10, np.pi/40])
 
     def step(self, velocity, rotate_angle_speed):
         velocity = np.clip(velocity, self.action_space_low[0], self.action_space_high[0])
@@ -77,7 +82,7 @@ class CarTrackSimulator:
                 if min(sensor_1_output, sensor_2_output, sensor_3_output, sensor_4_output, sensor_5_output) < 5:
                     sensors_output = self.pre_sensors_output
                     sensors_lines = self.pre_sensors_lines
-                    self.car_1.reward -= 10
+                    self.car_1.checkpoint_reward -= 10
                     self.car_1.is_dead = 1
                 else:
                     self.pre_sensors_output = sensors_output
@@ -101,7 +106,7 @@ class CarTrackSimulator:
                                            sensor_3_output, sensor_4_output, sensor_5_output])
                 if min(sensor_1_output, sensor_2_output, sensor_3_output, sensor_4_output, sensor_5_output) < 5:
                     sensors_output = self.pre_sensors_output
-                    self.car_1.reward -= 10
+                    self.car_1.checkpoint_reward -= 10
                     self.car_1.is_dead = 1
                 else:
                     self.pre_sensors_output = sensors_output
@@ -112,7 +117,8 @@ class CarTrackSimulator:
 
     class Car:
         def __init__(self, visualize_enable):
-            self.reward = 0
+            self.checkpoint_reward = 0
+            self.total_reward = 0
             self.visualize = visualize_enable
             self.width = np.float(20)
             self.height = np.float(10)
@@ -175,7 +181,7 @@ class CarTrackSimulator:
                     if (background[int(y), int(x)] == (0, 0, 0)).all() and \
                             (frame[int(y), int(x)] == (0, 0, 255)).all():
                         if self.is_dead == 0:
-                            self.reward -= 10
+                            self.checkpoint_reward -= 10
                         self.is_dead = 1
 
         def get_sensor_output(self, env, sensor_angle):
@@ -242,21 +248,27 @@ class CarTrackSimulator:
             if checkpoint_intersected != -1:
                 if checkpoint_intersected != self.last_checkpoint:
                     if self.last_checkpoint == 17 and checkpoint_intersected == 0:
-                        self.reward += 1
+                        self.checkpoint_reward += 1
                     elif self.last_checkpoint == 0 and checkpoint_intersected == 17:
-                        self.reward -= 1
+                        self.checkpoint_reward -= 1
                     elif checkpoint_intersected == self.last_checkpoint + 1:
-                        self.reward += 1
+                        self.checkpoint_reward += 1
                     elif checkpoint_intersected == self.last_checkpoint - 1:
-                        self.reward -= 1
+                        self.checkpoint_reward -= 1
                     self.last_checkpoint = checkpoint_intersected
             else:
                 pass
-            return self.reward
+            if self.last_checkpoint == 17:
+                center_reward = (500 - np.sqrt(np.sum((self.center_coord - env.checkpoint_center[0])**2)))*0.002
+            else:
+                center_reward = (500 - np.sqrt(np.sum((self.center_coord - env.checkpoint_center[self.last_checkpoint + 1]) ** 2)))*0.002
+            self.total_reward = self.checkpoint_reward + center_reward
+            return self.total_reward
 
     def draw_cars(self, car):
         self.frame = self.background.copy()
-        cv2.fillPoly(self.frame, [car.coordinates_int], (0, 0, 255))
+        # cv2.fillPoly(self.frame, [car.coordinates_int], (0, 0, 255))
+        cv2.fillPoly(self.frame, np.array([car.coordinates_int], np.int), (0, 0, 255))
 
     def update_visualize(self, sensors_output, sensors_lines):
         if self.car_1.is_dead == 1:
@@ -277,14 +289,14 @@ class CarTrackSimulator:
         for i in range(self.checkpoint_lines.shape[0]):
             cv2.line(self.frame, tuple(self.checkpoint_lines[i][0]), tuple(self.checkpoint_lines[i][1]),
                      (128, 0, 128), 2)
-        cv2.putText(self.frame, "Reward is: %d" % self.car_1.reward, (600, 100),
+            cv2.circle(self.frame, tuple(self.checkpoint_center[i]), 2, (255, 255, 255), -1)
+        cv2.putText(self.frame, "Reward is: %0.4f" % self.car_1.total_reward, (600, 100),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 200), 1, cv2.LINE_AA)
         frame_ldu = self.frame.swapaxes(0, 1)
         frame_ldu = cv2.cvtColor(frame_ldu, cv2.COLOR_BGR2RGB)
         my_surface = pygame.pixelcopy.make_surface(frame_ldu)
         self.display_surface.blit(my_surface, (0, 0))
         pygame.display.update()
-        # pygame.time.delay(10)
 
     def get_keyboard_input(self):
         for event in pygame.event.get():
