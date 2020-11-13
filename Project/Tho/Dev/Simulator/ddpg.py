@@ -157,7 +157,7 @@ def policy(state, noise_object):
     # legal_action = np.clip(sampled_actions, lower_bound, upper_bound)
     legal_action = np.clip(sampled_actions, [-1, -1], [1, 1])
     # legal_action = sampled_actions
-    # print(legal_actio
+    # print(legal_action)
     return [np.squeeze(legal_action)]
 
 
