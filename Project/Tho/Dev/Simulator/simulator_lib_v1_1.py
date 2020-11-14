@@ -11,6 +11,10 @@ class CarTrackSimulator:
         self.action_space = 2
         self.action_space_low = np.array([-10, -np.pi/40])
         self.action_space_high = np.array([10, np.pi/40])
+        self.episodic_reward = 0  # For display purpose
+        self.action = np.zeros(2)  # For display purpose
+        self.buffer_counter = 0  # For display purpose
+        self.episode = 0  # For display purpose
         self.visualize_enable = visualize_enable
         self.width = 1000
         self.height = 700
@@ -63,7 +67,7 @@ class CarTrackSimulator:
         self.car_1.check_border_intersect(self.background, self.frame)
         self.car_1.update_coords(rotate_angle_speed, velocity)
         if self.car_1.is_dead != 1:
-            reward = self.car_1.get_reward(self)
+            self.car_1.get_reward(self)
         self.draw_cars(self.car_1)
         if self.visualize_enable:
             if not self.car_1.is_dead:
@@ -263,7 +267,8 @@ class CarTrackSimulator:
             if self.last_checkpoint == 17:
                 center_reward = (500 - np.sqrt(np.sum((self.center_coord - env.checkpoint_center[0])**2)))*0.002
             else:
-                center_reward = (500 - np.sqrt(np.sum((self.center_coord - env.checkpoint_center[self.last_checkpoint + 1]) ** 2)))*0.002
+                center_reward = (500 - np.sqrt(np.sum((self.center_coord -
+                                                       env.checkpoint_center[self.last_checkpoint + 1]) ** 2)))*0.002
             self.total_reward = self.checkpoint_reward + center_reward
             return self.total_reward
 
@@ -274,14 +279,14 @@ class CarTrackSimulator:
 
     def update_visualize(self, sensors_output, sensors_lines):
         if self.car_1.is_dead == 1:
-            cv2.putText(self.frame, "Intersect detected, you are dead :(", (700, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+            cv2.putText(self.frame, "Intersect detected, you are dead :(", (350, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                         (0, 0, 200), 1, cv2.LINE_AA)
         else:
-            cv2.putText(self.frame, "Show them who's the boss, racing boizzzz !!!!", (600, 50),
+            cv2.putText(self.frame, "Show them who's the boss, racing boizzzz !!!!", (350, 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 200), 1, cv2.LINE_AA)
         for i in range(sensors_output.shape[0]):
             cv2.putText(self.frame, "Sensor %d: %.3f"
-                        % (i + 1, sensors_output[i]), (30, 30 + 30 * i),
+                        % (i + 1, sensors_output[i]), (5, 570 + 30 * i),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (128, 0, 128), 1, cv2.LINE_AA)
         if sensors_output.min() != -1:
             for i in range(len(sensors_lines)):
@@ -292,8 +297,18 @@ class CarTrackSimulator:
             cv2.line(self.frame, tuple(self.checkpoint_lines[i][0]), tuple(self.checkpoint_lines[i][1]),
                      (128, 0, 128), 2)
             cv2.circle(self.frame, tuple(self.checkpoint_center[i]), 2, (255, 255, 255), -1)
-        cv2.putText(self.frame, "Reward is: %0.4f" % self.car_1.total_reward, (600, 100),
+        cv2.putText(self.frame, "Instant reward: %0.4f (points)" % self.car_1.total_reward, (200, 50),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 200), 1, cv2.LINE_AA)
+        cv2.putText(self.frame, "Last episodic reward: %0.4f (points)" % self.episodic_reward, (600, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 200), 1, cv2.LINE_AA)
+        cv2.putText(self.frame, "Speed: %0.4f" % self.action[0], (200, 570 + 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (10, 10, 10), 1, cv2.LINE_AA)
+        cv2.putText(self.frame, "Rotate gradient: %0.4f" % self.action[1], (200, 570 + 90),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (10, 10, 10), 1, cv2.LINE_AA)
+        cv2.putText(self.frame, "Episode: %d" % self.episode, (750, 590 + 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 250), 1, cv2.LINE_AA)
+        cv2.putText(self.frame, "Buffer counter: %d" % self.buffer_counter, (750, 570 + 100),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 250), 1, cv2.LINE_AA)
         frame_ldu = self.frame.swapaxes(0, 1)
         frame_ldu = cv2.cvtColor(frame_ldu, cv2.COLOR_BGR2RGB)
         my_surface = pygame.pixelcopy.make_surface(frame_ldu)

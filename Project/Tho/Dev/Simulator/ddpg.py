@@ -3,8 +3,6 @@ import tensorflow as tf
 from tensorflow.keras import layers
 import numpy as np
 import matplotlib.pyplot as plt
-import time
-import tensorflow_addons as tfa
 
 env = CarTrackSimulator(visualize_enable=True)
 
@@ -35,7 +33,6 @@ class QUActionNoise:
             + self.theta * (self.mean - self.x_pre) * self.dt
             + self.std_dev * np.sqrt(self.dt) * np.random.normal(size=self.mean.shape)
         )
-
         self.x_pre = x
         return x
 
@@ -67,7 +64,6 @@ class Buffer:
         self.next_state_buffer[index] = obs_tuple[3]
 
         self.buffer_counter += 1
-
 
     @tf.function
     def update(
@@ -110,9 +106,9 @@ class Buffer:
 
 
 @tf.function
-def update_target(target_weights, weights, tau):
+def update_target(target_weights, weights, tau_ldu):
     for (a, b) in zip(target_weights, weights):
-        a.assign(b * tau + a * (1-tau))
+        a.assign(b * tau_ldu + a * (1 - tau_ldu))
 
 
 def get_actor():
@@ -146,12 +142,9 @@ def get_critic():
     return model
 
 
-def policy(state, noise_object):
-    sampled_actions = tf.squeeze(actor_model(state))
-    # print(state)
-    # print(actor_model(state))
+def policy(state_ldu, noise_object):
+    sampled_actions = tf.squeeze(actor_model(state_ldu))
     noise = noise_object()
-    # print(noise)
     sampled_actions = sampled_actions.numpy() + noise
     # sampled_actions = sampled_actions.numpy()
     # legal_action = np.clip(sampled_actions, lower_bound, upper_bound)
@@ -202,6 +195,7 @@ for ep in range(total_episodes):
         tf_prev_state = tf.expand_dims(tf.convert_to_tensor(prev_state), 0)
 
         action = policy(tf_prev_state, ou_noise)
+        env.action = np.array([action[0][0], action[0][1]])  # For display purpose
         if env.visualize_enable == 1:
             _, _ = env.get_keyboard_input()
         state, reward, done = env.step(action[0][0]*upper_bound[0]+2*upper_bound[0], action[0][1]*upper_bound[1])
@@ -220,11 +214,16 @@ for ep in range(total_episodes):
         episodic_reward += reward
 
         buffer.learn()
+
+        env.buffer_counter = buffer.buffer_counter  # For display purpose
+        env.episode = ep  # For display purpose
+
         update_target(target_actor.variables, actor_model.variables,  tau)
         update_target(target_critic.variables, critic_model.variables, tau)
         if done == 1:
             break
         prev_state = state
+    env.episodic_reward = episodic_reward  # For display purpose
     print("Episodic reward is: %0.5f" % episodic_reward)
     ep_reward_list.append(episodic_reward)
 
@@ -239,5 +238,5 @@ for ep in range(total_episodes):
 # Episodes versus Avg. Rewards
 plt.plot(avg_reward_list)
 plt.xlabel("Episode")
-plt.ylabel("Avg. Epsiodic Reward")
+plt.ylabel("Avg. Episodic Reward")
 plt.show()
