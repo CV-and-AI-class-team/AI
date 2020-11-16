@@ -4,7 +4,7 @@ from tensorflow.keras import layers
 import numpy as np
 import matplotlib.pyplot as plt
 
-env = CarTrackSimulator(visualize_enable=True)
+env = CarTrackSimulator(visualize_enable=False)
 
 num_states = env.observation_space
 num_actions = env.action_space
@@ -172,7 +172,7 @@ actor_lr = 0.0001
 critic_optimizer = tf.keras.optimizers.Adam(critic_lr)
 actor_optimizer = tf.keras.optimizers.Adam(actor_lr)
 
-total_episodes = 10000
+total_episodes = 1000
 
 gamma = 0.9999
 
@@ -183,7 +183,16 @@ buffer = Buffer(50000, 5000)
 ep_reward_list = []
 avg_reward_list = []
 
+ax = plt.axes()
+plt.xlabel('Episodes')
+plt.ylabel('Reward')
+plt.title('DDPG reward')
+plt.ion()
+plt.show(block=False)
+
 for ep in range(total_episodes):
+    line, = plt.plot(avg_reward_list, color='blue')
+    plt.draw()
 
     env.car_1.__init__(visualize_enable=env.visualize_enable)
     prev_state, reward, done = env.step(0, 0)
@@ -196,8 +205,8 @@ for ep in range(total_episodes):
 
         action = policy(tf_prev_state, ou_noise)
         env.action = np.array([action[0][0], action[0][1]])  # For display purpose
-        if env.visualize_enable == 1:
-            _, _ = env.get_keyboard_input()
+        # if env.visualize_enable == 1:
+        #     _, _ = env.get_keyboard_input()
         state, reward, done = env.step(action[0][0]*upper_bound[0]+2*upper_bound[0], action[0][1]*upper_bound[1])
         reward += action[0][0]*upper_bound[0]/2+upper_bound[0]
         if live_counter == 0:
@@ -223,6 +232,7 @@ for ep in range(total_episodes):
         if done == 1:
             break
         prev_state = state
+        plt.pause(1.e-17)  # For graph display
     env.episodic_reward = episodic_reward  # For display purpose
     print("Episodic reward is: %0.5f" % episodic_reward)
     ep_reward_list.append(episodic_reward)

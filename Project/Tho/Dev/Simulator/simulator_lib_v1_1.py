@@ -123,7 +123,7 @@ class CarTrackSimulator:
         def __init__(self, visualize_enable):
             self.checkpoint_reward = 0
             self.checkpoint_reward_step = 10
-            self.dead_penalty = 100
+            self.dead_penalty = 500  # 100
             self.total_reward = 0
             self.visualize = visualize_enable
             self.width = np.float(20)
